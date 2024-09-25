@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Power Dashboard</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(to bottom right, #2c3e50, #2980b9);
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+        }
+
+        .gauge-container {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+
+        .gauge-card {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            margin: 20px;
+            transition: transform 0.3s;
+            position: relative; /* For absolute positioning of values */
+        }
+
+        .gauge-card:hover {
+            transform: translateY(-10px);
+        }
+
+        .gauge {
+            width: 250px;
+            height: 250px;
+        }
+
+        .gauge-title {
+            font-size: 1.5rem;
+            margin-top: 15px;
+        }
+
+        .value-display {
+            position: absolute;
+            top: 50%; /* Center vertically */
+            left: 50%; /* Center horizontally */
+            transform: translate(-50%, -50%); /* Offset by half width/height */
+            font-size: 2rem;
+            color: #f39c12;
+        }
+
+        .power-meter {
+            margin-top: 50px;
+            background-color: rgba(255, 255, 255, 0.15);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            display: inline-block;
+            transition: transform 0.3s;
+        }
+
+        .power-meter:hover {
+            transform: translateY(-10px);
+        }
+
+        .power-meter h2 {
+            font-size: 2rem;
+            margin-bottom: 0;
+        }
+
+        .power-meter span {
+            font-size: 3rem;
+            color: #f39c12;
+        }
+
+        footer {
+            margin-top: 50px;
+            color: #ecf0f1;
+            font-size: 1rem;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/gaugeJS/dist/gauge.min.js"></script>
+</head>
+<body>
+
+    <h1>Smart Power Dashboard</h1>
+
+    <div class="gauge-container">
+        <!-- Voltage Gauge -->
+        <div class="gauge-card">
+            <canvas id="voltageGauge" class="gauge"></canvas>
+            <div class="value-display" id="voltageValue">0 V</div>
+            <div class="gauge-title">Voltage</div>
+        </div>
+
+        <!-- Current Gauge -->
+        <div class="gauge-card">
+            <canvas id="currentGauge" class="gauge"></canvas>
+            <div class="value-display" id="currentValue">0 mA</div>
+            <div class="gauge-title">Current</div>
+        </div>
+
+        <!-- Power Gauge -->
+        <div class="gauge-card">
+            <canvas id="powerGauge" class="gauge"></canvas>
+            <div class="value-display" id="powerValue">0 W</div>
+            <div class="gauge-title">Power</div>
+        </div>
+    </div>
+
+    <div class="power-meter">
+        <h2>Power Gained</h2>
+        <span id="powerGained">0</span> W
+    </div>
+
+    <footer>
+        <p>Powered by ThingSpeak & GaugeJS</p>
+    </footer>
+
+    <script>
+        // Gauge configuration
+        const gaugeOptions = {
+            angle: 0,
+            lineWidth: 0.2,
+            radiusScale: 1,
+            pointer: {
+                length: 0.6,
+                strokeWidth: 0.04,
+                color: '#000000'
+            },
+            limitMax: false,
+            limitMin: false,
+            colorStart: '#6FADCF',
+            colorStop: '#8FC0DA',
+            strokeColor: '#E0E0E0',
+            generateGradient: true,
+            highDpiSupport: true,
+        };
+
+        // Initialize Gauges
+        const voltageGauge = new Gauge(document.getElementById('voltageGauge')).setOptions(gaugeOptions);
+        voltageGauge.maxValue = 240;
+        voltageGauge.setMinValue(0);
+        voltageGauge.animationSpeed = 32;
+        voltageGauge.set(0);
+
+        const currentGauge = new Gauge(document.getElementById('currentGauge')).setOptions(gaugeOptions);
+        currentGauge.maxValue = 50;
+        currentGauge.setMinValue(0);
+        currentGauge.animationSpeed = 32;
+        currentGauge.set(0);
+
+        const powerGauge = new Gauge(document.getElementById('powerGauge')).setOptions(gaugeOptions);
+        powerGauge.maxValue = 12000;
+        powerGauge.setMinValue(0);
+        powerGauge.animationSpeed = 32;
+        powerGauge.set(0);
+
+        // Function to calculate power
+        function calculatePower(voltage, current) {
+            return voltage * current;
+        }
+
+        // Fetch data from ThingSpeak
+        async function fetchData() {
+            const READ_API_KEY = 'YOUR_READ_API_KEY'; // Replace with your ThingSpeak Read API Key
+            const CHANNEL_ID = 'YOUR_CHANNEL_ID'; // Replace with your ThingSpeak Channel ID
+
+            const url = `https://api.thingspeak.com/channels/2669486/feeds.json?api_key=6IALU2QUW2NLSILU&results=1`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                const voltage = parseFloat(data.feeds[0].field1);
+                const current = parseFloat(data.feeds[0].field2);
+
+                // Update the gauges
+                voltageGauge.set(voltage);
+                document.getElementById('voltageValue').innerText = voltage.toFixed(2) + ' V';
+                
+                currentGauge.set(current);
+                document.getElementById('currentValue').innerText = current.toFixed(2) + ' mA';
+                
+                const power = calculatePower(voltage, current);
+                powerGauge.set(power);
+                document.getElementById('powerValue').innerText = power.toFixed(2) + ' W';
+
+                document.getElementById('powerGained').innerText = power.toFixed(2);
+
+            } catch (error) {
+                console.error("Error fetching data from ThingSpeak: ", error);
+            }
+        }
+
+        // Update every 5 seconds
+        setInterval(fetchData, 5000);
+    </script>
+
+</body>
+</html>
